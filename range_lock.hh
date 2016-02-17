@@ -53,7 +53,7 @@ public:
         return static_cast<std::unique_ptr<range_lock>>(new range_lock(granularity));
     }
 private:
-    entry& get_entry(uint64_t entry_id) {
+    entry& get_locked_entry(uint64_t entry_id) {
         std::lock_guard<std::mutex> lock(_entries_lock);
         auto it = _entries.find(entry_id);
         assert(it != _entries.end()); // assert entry exists.
@@ -131,7 +131,7 @@ public:
     void unlock(uint64_t offset, uint64_t length) {
         validate_parameters(offset, length);
         for_each_entry_id(offset, length, [this] (uint64_t entry_id) {
-            entry& e = this->get_entry(entry_id);
+            entry& e = this->get_locked_entry(entry_id);
             e.mutex.unlock();
             this->unlock_entry(entry_id);
         });
