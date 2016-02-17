@@ -17,7 +17,7 @@
 /// \brief Range lock class
 ///
 /// Utility created to control access to specific regions of a shared resource,
-/// such as a buffer or file. Think of it as byte-range locking.
+/// such as a buffer or file. Think of it as byte-range locking mechanism.
 ///
 /// This works by dividing the resource into N regions, and associating an id
 /// with each region. A lower granularity results in finer-grained locking.
