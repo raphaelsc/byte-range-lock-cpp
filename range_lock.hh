@@ -112,7 +112,7 @@ private:
     }
 
     void validate_parameters(uint64_t offset, uint64_t length) {
-        assert(offset < length);
+        assert(offset < (offset + length)); // check for overflow
         assert(length > 0);
     }
 public:
