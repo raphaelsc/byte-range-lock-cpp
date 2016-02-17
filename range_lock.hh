@@ -107,8 +107,8 @@ private:
 
     void for_each_entry_id(uint64_t offset, uint64_t length, std::function<void(uint64_t)> f) {
         uint64_t aligned_down_offset = offset & ~(_granularity - 1);
-        uint64_t aligned_up_offset = (length + _granularity) & ~(_granularity - 1);
-        do_for_each_entry_id(aligned_down_offset, aligned_up_offset, std::move(f));
+        uint64_t aligned_up_length = (length + _granularity) & ~(_granularity - 1);
+        do_for_each_entry_id(aligned_down_offset, aligned_up_length, std::move(f));
     }
 
     void validate_parameters(uint64_t offset, uint64_t length) {
