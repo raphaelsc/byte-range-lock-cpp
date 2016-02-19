@@ -1,6 +1,6 @@
+#include "range_lock.hh"
 #include <iostream>
 #include <thread>
-#include "range_lock.hh"
 
 int main(void) {
     auto range_lock = range_lock::create_range_lock(pow(2, 30));
