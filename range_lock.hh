@@ -18,7 +18,6 @@
 #include <mutex>
 #endif
 
-
 /// \brief Range lock class
 ///
 /// Utility created to control access to specific regions of a shared resource,
