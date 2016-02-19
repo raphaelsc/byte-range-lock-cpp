@@ -36,7 +36,7 @@
 /// reference count management.
 struct range_lock {
 private:
-    struct entry {
+    struct region {
         uint64_t refcount = 0;
 #if (__cplusplus >= 201402L)
         std::shared_timed_mutex mutex;
@@ -44,8 +44,10 @@ private:
         std::mutex mutex;
 #endif
     };
-    std::unordered_map<uint64_t, std::unique_ptr<entry>> _entries;
-    std::mutex _entries_lock;
+    std::unordered_map<uint64_t, std::unique_ptr<region>> _regions;
+    std::mutex _regions_lock;
+    // Granularity corresponds to the region size, which is the unit to be
+    // individually protected from concurrent access.
     const uint64_t _granularity;
 public:
     range_lock() = delete;
@@ -62,62 +64,62 @@ public:
         return static_cast<std::unique_ptr<range_lock>>(new range_lock(granularity));
     }
 private:
-    entry& get_locked_entry(uint64_t entry_id) {
-        std::lock_guard<std::mutex> lock(_entries_lock);
-        auto it = _entries.find(entry_id);
-        assert(it != _entries.end()); // assert entry exists.
-        entry& e = *(it->second);
-        assert(e.refcount > 0); // assert entry is locked.
+    region& get_locked_region(uint64_t region_id) {
+        std::lock_guard<std::mutex> lock(_regions_lock);
+        auto it = _regions.find(region_id);
+        assert(it != _regions.end()); // assert region exists.
+        region& e = *(it->second);
+        assert(e.refcount > 0); // assert region is locked.
         return e;
     }
 
-    entry& get_and_lock_entry(uint64_t entry_id) {
-        std::lock_guard<std::mutex> lock(_entries_lock);
-        auto it = _entries.find(entry_id);
-        if (it == _entries.end()) {
-            std::unique_ptr<entry> e(new entry);
-            auto ret = _entries.insert(std::make_pair(entry_id, std::move(e)));
+    region& get_and_lock_region(uint64_t region_id) {
+        std::lock_guard<std::mutex> lock(_regions_lock);
+        auto it = _regions.find(region_id);
+        if (it == _regions.end()) {
+            std::unique_ptr<region> e(new region);
+            auto ret = _regions.insert(std::make_pair(region_id, std::move(e)));
             it = ret.first;
         }
-        entry& e = *(it->second);
+        region& e = *(it->second);
         e.refcount++;
         return e;
     }
 
-    void unlock_entry(uint64_t entry_id) {
-        std::lock_guard<std::mutex> lock(_entries_lock);
-        auto it = _entries.find(entry_id);
-        assert(it != _entries.end());
-        entry& e = *(it->second);
+    void unlock_region(uint64_t region_id) {
+        std::lock_guard<std::mutex> lock(_regions_lock);
+        auto it = _regions.find(region_id);
+        assert(it != _regions.end());
+        region& e = *(it->second);
         if (--e.refcount == 0) {
-            _entries.erase(it);
+            _regions.erase(it);
         }
     }
 
-    inline uint64_t get_entry_id(uint64_t offset) {
+    inline uint64_t get_region_id(uint64_t offset) {
         return offset / _granularity;
     }
 
     inline void
-    do_for_each_entry_id(uint64_t offset, uint64_t length, std::function<void(uint64_t)> f) {
+    do_for_each_region_id(uint64_t offset, uint64_t length, std::function<void(uint64_t)> f) {
         auto assert_alignment = [] (uint64_t v, uint64_t a) {
             assert((v & (a - 1)) == 0);
         };
         assert_alignment(offset, _granularity);
         assert_alignment(length, _granularity);
-        auto entries = length / _granularity;
+        auto regions = length / _granularity;
         assert(length % _granularity == 0);
-        for (auto i = 0; i < entries; i++) {
+        for (auto i = 0; i < regions; i++) {
             auto current_offset = offset + (i * _granularity);
-            auto entry_id = get_entry_id(current_offset);
-            f(entry_id);
+            auto region_id = get_region_id(current_offset);
+            f(region_id);
         }
     }
 
-    void for_each_entry_id(uint64_t offset, uint64_t length, std::function<void(uint64_t)> f) {
+    void for_each_region_id(uint64_t offset, uint64_t length, std::function<void(uint64_t)> f) {
         uint64_t aligned_down_offset = offset & ~(_granularity - 1);
         uint64_t aligned_up_length = (length + _granularity) & ~(_granularity - 1);
-        do_for_each_entry_id(aligned_down_offset, aligned_up_length, std::move(f));
+        do_for_each_region_id(aligned_down_offset, aligned_up_length, std::move(f));
     }
 
     void validate_parameters(uint64_t offset, uint64_t length) {
@@ -130,8 +132,8 @@ public:
     // Lock [offset, offset+length) for exclusive ownership.
     void lock(uint64_t offset, uint64_t length) {
         validate_parameters(offset, length);
-        for_each_entry_id(offset, length, [this] (uint64_t entry_id) {
-            entry& e = this->get_and_lock_entry(entry_id);
+        for_each_region_id(offset, length, [this] (uint64_t region_id) {
+            region& e = this->get_and_lock_region(region_id);
             e.mutex.lock();
         });
     }
@@ -139,10 +141,10 @@ public:
     // Unlock [offset, offset+length)
     void unlock(uint64_t offset, uint64_t length) {
         validate_parameters(offset, length);
-        for_each_entry_id(offset, length, [this] (uint64_t entry_id) {
-            entry& e = this->get_locked_entry(entry_id);
+        for_each_region_id(offset, length, [this] (uint64_t region_id) {
+            region& e = this->get_locked_region(region_id);
             e.mutex.unlock();
-            this->unlock_entry(entry_id);
+            this->unlock_region(region_id);
         });
     }
 
@@ -158,8 +160,8 @@ public:
     // Lock [offset, offset+length) for shared ownership.
     void lock_shared(uint64_t offset, uint64_t length) {
         validate_parameters(offset, length);
-        for_each_entry_id(offset, length, [this] (uint64_t entry_id) {
-            entry& e = this->get_and_lock_entry(entry_id);
+        for_each_region_id(offset, length, [this] (uint64_t region_id) {
+            region& e = this->get_and_lock_region(region_id);
             e.mutex.lock_shared();
         });
     }
@@ -167,10 +169,10 @@ public:
     // Unlock [offset, offset+length)
     void unlock_shared(uint64_t offset, uint64_t length) {
         validate_parameters(offset, length);
-        for_each_entry_id(offset, length, [this] (uint64_t entry_id) {
-            entry& e = this->get_locked_entry(entry_id);
+        for_each_region_id(offset, length, [this] (uint64_t region_id) {
+            region& e = this->get_locked_region(region_id);
             e.mutex.unlock_shared();
-            this->unlock_entry(entry_id);
+            this->unlock_region(region_id);
         });
     }
 
