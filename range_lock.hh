@@ -136,7 +136,7 @@ private:
 public:
     uint64_t region_size() const { return _region_size; }
 
-    // Lock [offset, offset+length) for exclusive ownership.
+    // Lock range [offset, offset+length) for exclusive ownership.
     void lock(uint64_t offset, uint64_t length) {
         validate_parameters(offset, length);
         for_each_region(offset, length, [this] (uint64_t region_id) {
@@ -145,7 +145,7 @@ public:
         });
     }
 
-    // Unlock [offset, offset+length)
+    // Unlock range [offset, offset+length)
     void unlock(uint64_t offset, uint64_t length) {
         validate_parameters(offset, length);
         for_each_region(offset, length, [this] (uint64_t region_id) {
@@ -164,7 +164,7 @@ public:
     }
 
 #if (__cplusplus >= 201402L)
-    // Lock [offset, offset+length) for shared ownership.
+    // Lock range [offset, offset+length) for shared ownership.
     void lock_shared(uint64_t offset, uint64_t length) {
         validate_parameters(offset, length);
         for_each_region(offset, length, [this] (uint64_t region_id) {
@@ -173,7 +173,7 @@ public:
         });
     }
 
-    // Unlock [offset, offset+length)
+    // Unlock range [offset, offset+length)
     void unlock_shared(uint64_t offset, uint64_t length) {
         validate_parameters(offset, length);
         for_each_region(offset, length, [this] (uint64_t region_id) {
