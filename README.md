@@ -1,6 +1,6 @@
 # range-lock
 
-Why was this project created? I was looking for a mechanism to lock specific regions of a shared resource such as a file, but I didn't find anything that was fit my needs. Please, take a look at *range_lock.hh* to understand how this mechanism works.
+Why was this project created? I was looking for a mechanism to lock specific regions of a shared resource such as a file, but I didn't find anything that was fit my needs. Please, take a look at the file **range_lock.hh** to understand how this mechanism works.
 
 ###Build requirements
 * C++ >= 11
