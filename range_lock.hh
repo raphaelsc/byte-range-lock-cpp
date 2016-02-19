@@ -75,9 +75,9 @@ private:
     region& get_locked_region(uint64_t region_id) {
         std::lock_guard<std::mutex> lock(_regions_lock);
         auto it = _regions.find(region_id);
-        assert(it != _regions.end()); // assert region exists.
+        assert(it != _regions.end()); // assert region exists
         region& r = *(it->second);
-        assert(r.refcount > 0); // assert region is locked.
+        assert(r.refcount > 0); // assert region is locked
         return r;
     }
 
@@ -145,7 +145,7 @@ public:
         });
     }
 
-    // Unlock range [offset, offset+length)
+    // Unlock range [offset, offset+length) from exclusive ownership.
     void unlock(uint64_t offset, uint64_t length) {
         validate_parameters(offset, length);
         for_each_region(offset, length, [this] (uint64_t region_id) {
@@ -173,7 +173,7 @@ public:
         });
     }
 
-    // Unlock range [offset, offset+length)
+    // Unlock range [offset, offset+length) from shared ownership.
     void unlock_shared(uint64_t offset, uint64_t length) {
         validate_parameters(offset, length);
         for_each_region(offset, length, [this] (uint64_t region_id) {
