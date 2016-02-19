@@ -73,30 +73,30 @@ private:
         std::lock_guard<std::mutex> lock(_regions_lock);
         auto it = _regions.find(region_id);
         assert(it != _regions.end()); // assert region exists.
-        region& e = *(it->second);
-        assert(e.refcount > 0); // assert region is locked.
-        return e;
+        region& r = *(it->second);
+        assert(r.refcount > 0); // assert region is locked.
+        return r;
     }
 
     region& get_and_lock_region(uint64_t region_id) {
         std::lock_guard<std::mutex> lock(_regions_lock);
         auto it = _regions.find(region_id);
         if (it == _regions.end()) {
-            std::unique_ptr<region> e(new region);
-            auto ret = _regions.insert(std::make_pair(region_id, std::move(e)));
+            std::unique_ptr<region> r(new region);
+            auto ret = _regions.insert(std::make_pair(region_id, std::move(r)));
             it = ret.first;
         }
-        region& e = *(it->second);
-        e.refcount++;
-        return e;
+        region& r = *(it->second);
+        r.refcount++;
+        return r;
     }
 
     void unlock_region(uint64_t region_id) {
         std::lock_guard<std::mutex> lock(_regions_lock);
         auto it = _regions.find(region_id);
         assert(it != _regions.end());
-        region& e = *(it->second);
-        if (--e.refcount == 0) {
+        region& r = *(it->second);
+        if (--r.refcount == 0) {
             _regions.erase(it);
         }
     }
@@ -137,8 +137,8 @@ public:
     void lock(uint64_t offset, uint64_t length) {
         validate_parameters(offset, length);
         for_each_region(offset, length, [this] (uint64_t region_id) {
-            region& e = this->get_and_lock_region(region_id);
-            e.mutex.lock();
+            region& r = this->get_and_lock_region(region_id);
+            r.mutex.lock();
         });
     }
 
@@ -146,8 +146,8 @@ public:
     void unlock(uint64_t offset, uint64_t length) {
         validate_parameters(offset, length);
         for_each_region(offset, length, [this] (uint64_t region_id) {
-            region& e = this->get_locked_region(region_id);
-            e.mutex.unlock();
+            region& r = this->get_locked_region(region_id);
+            r.mutex.unlock();
             this->unlock_region(region_id);
         });
     }
@@ -165,8 +165,8 @@ public:
     void lock_shared(uint64_t offset, uint64_t length) {
         validate_parameters(offset, length);
         for_each_region(offset, length, [this] (uint64_t region_id) {
-            region& e = this->get_and_lock_region(region_id);
-            e.mutex.lock_shared();
+            region& r = this->get_and_lock_region(region_id);
+            r.mutex.lock_shared();
         });
     }
 
@@ -174,8 +174,8 @@ public:
     void unlock_shared(uint64_t offset, uint64_t length) {
         validate_parameters(offset, length);
         for_each_region(offset, length, [this] (uint64_t region_id) {
-            region& e = this->get_locked_region(region_id);
-            e.mutex.unlock_shared();
+            region& r = this->get_locked_region(region_id);
+            r.mutex.unlock_shared();
             this->unlock_region(region_id);
         });
     }
