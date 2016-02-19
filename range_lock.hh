@@ -31,7 +31,8 @@
 /// Choosing an optimal region size:
 /// The smaller the region size, the more regions exists.
 /// The more regions exists, the finer grained the locking is.
-/// If in doubt, use create_range_lock. It will choose a region size for you.
+/// If in doubt, use range_lock::create_range_lock(). It will choose a region
+/// size for you.
 ///
 /// How lock works with range_lock?
 /// A lock request may cover more than one region, so there is a need to wait
