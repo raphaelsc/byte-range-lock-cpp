@@ -33,7 +33,7 @@
 /// If in doubt, use range_lock::create_range_lock(). It will choose a region
 /// size for you.
 ///
-/// How lock works with range_lock?
+/// How locking does work with range_lock?
 /// A lock request may cover more than one region, so there is a need to wait
 /// for each covered region to be available. Deadlock is avoided by always
 /// locking regions in sequential order.
