@@ -122,7 +122,7 @@ private:
 
     void for_each_region(uint64_t offset, uint64_t length, std::function<void(uint64_t)> f) {
         uint64_t aligned_down_offset = offset & ~(_region_size - 1);
-        uint64_t aligned_up_length = (length + _region_size) & ~(_region_size - 1);
+        uint64_t aligned_up_length = (length + _region_size - 1) & ~(_region_size - 1);
         do_for_each_region(aligned_down_offset, aligned_up_length, std::move(f));
     }
 
