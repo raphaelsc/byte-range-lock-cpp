@@ -61,7 +61,10 @@ public:
         assert(region_size > 0);
         assert((region_size & (region_size - 1)) == 0);
     }
-    // Create range_lock with a good region_size given the size of a resource
+    // Create a range_lock with a region size, which is calculated based on the
+    // size of resource to be protected.
+    // For example, if you want to protect a file, call create_range_lock()
+    // with the size of that file.
     static std::unique_ptr<range_lock> create_range_lock(uint64_t resource_size) {
         auto res = ceil(std::log2(resource_size) * 0.5);
         auto exp = std::max(uint64_t(res), uint64_t(10));
