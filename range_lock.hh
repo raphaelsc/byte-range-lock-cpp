@@ -9,10 +9,15 @@
 
 #include <unordered_map>
 #include <memory>
-#include <mutex>
 #include <algorithm>
 #include <cmath>
 #include <assert.h>
+#if (__cplusplus >= 201402L)
+#include <shared_mutex>
+#else
+#include <mutex>
+#endif
+
 
 /// \brief Range lock class
 ///
@@ -33,7 +38,11 @@ struct range_lock {
 private:
     struct entry {
         uint64_t refcount = 0;
+#if (__cplusplus >= 201402L)
+        std::shared_timed_mutex mutex;
+#else
         std::mutex mutex;
+#endif
     };
     std::unordered_map<uint64_t, std::unique_ptr<entry>> _entries;
     std::mutex _entries_lock;
@@ -118,7 +127,7 @@ private:
 public:
     uint64_t granularity() const { return _granularity; }
 
-    // Lock [offset, offset+length)
+    // Lock [offset, offset+length) for exclusive ownership.
     void lock(uint64_t offset, uint64_t length) {
         validate_parameters(offset, length);
         for_each_entry_id(offset, length, [this] (uint64_t entry_id) {
@@ -137,11 +146,40 @@ public:
         });
     }
 
-    // Execute an operation with range [offset, offset+length) locked.
+    // Execute an operation with range [offset, offset+length) locked for exclusive ownership.
     template <typename Func>
     void with_lock(uint64_t offset, uint64_t length, Func&& func) {
         lock(offset, length);
         func();
         unlock(offset, length);
     }
+
+#if (__cplusplus >= 201402L)
+    // Lock [offset, offset+length) for shared ownership.
+    void lock_shared(uint64_t offset, uint64_t length) {
+        validate_parameters(offset, length);
+        for_each_entry_id(offset, length, [this] (uint64_t entry_id) {
+            entry& e = this->get_and_lock_entry(entry_id);
+            e.mutex.lock_shared();
+        });
+    }
+
+    // Unlock [offset, offset+length)
+    void unlock_shared(uint64_t offset, uint64_t length) {
+        validate_parameters(offset, length);
+        for_each_entry_id(offset, length, [this] (uint64_t entry_id) {
+            entry& e = this->get_locked_entry(entry_id);
+            e.mutex.unlock_shared();
+            this->unlock_entry(entry_id);
+        });
+    }
+
+    // Execute an operation with range [offset, offset+length) locked for shared ownership.
+    template <typename Func>
+    void with_lock_shared(uint64_t offset, uint64_t length, Func&& func) {
+        lock_shared(offset, length);
+        func();
+        unlock_shared(offset, length);
+    }
+#endif
 };
