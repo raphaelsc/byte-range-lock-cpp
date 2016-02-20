@@ -110,7 +110,7 @@ private:
         }
     }
 
-    inline uint64_t get_region_id(uint64_t offset) {
+    inline uint64_t get_region_id(uint64_t offset) const {
         return offset / _region_size;
     }
 
