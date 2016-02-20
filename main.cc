@@ -10,9 +10,8 @@
 #include <thread>
 #include <assert.h>
 
-static inline void print_test_name(void) {
+#define print_test_name() \
     std::cout << "\nRunning " << __FUNCTION__ << "...\n";
-}
 
 static void basic_range_lock_test(range_lock& range_lock) {
     print_test_name();
@@ -34,6 +33,46 @@ static void basic_range_lock_test(range_lock& range_lock) {
     std::cout << "Unlocked [0, 1024*1024) properly\n";
 
     t.join();
+}
+
+static void basic_range_lock_shared_test(range_lock& range_lock) {
+#if (__cplusplus >= 201402L)
+    print_test_name();
+
+    auto print_message = [] (auto thread_id, auto message) {
+        std::cout << "[thread " << thread_id << "] " << message << std::endl;
+    };
+
+    std::vector<std::thread> ts;
+    for (auto i = 0; i < 5; i++) {
+        auto t = std::thread([&range_lock, &print_message, i] {
+            print_message(i, "Requiring immediate shared ownership from [0, 1024)");
+            bool acquired = range_lock.try_lock_shared(0, 1024);
+            assert(acquired);
+            print_message(i, "Succeeded");
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            range_lock.unlock_shared(0, 1024);
+        });
+        ts.push_back(std::move(t));
+    }
+
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::cout << "Checking that [0, 8192) cannot be acquired for exclusive ownership\n";
+    bool acquired = range_lock.try_lock(0, 8192);
+    assert(!acquired);
+    std::cout << "Succeeded\n";
+
+    for (auto& t : ts) {
+        t.join();
+    }
+    std::cout << "All threads released their lock for shared ownership\n";
+
+    std::cout << "Checking that [0, 8192) can be acquired for exclusive ownership\n";
+    acquired = range_lock.try_lock(0, 8192);
+    assert(acquired);
+    range_lock.unlock(0, 8192);
+    std::cout << "Succeeded\n";
+#endif
 }
 
 static void try_lock_test(range_lock& range_lock) {
@@ -59,6 +98,7 @@ static void try_lock_test(range_lock& range_lock) {
     std::cout << "Checking that [0, 8192) can be immediately acquired\n";
     acquired = range_lock.try_lock(0, 8192);
     assert(acquired);
+    range_lock.unlock(0, 8192);
     std::cout << "Succeeded\n";
 }
 
@@ -67,6 +107,7 @@ int main(void) {
     std::cout << "Range lock granularity (a.k.a. region size): " << range_lock->region_size() << std::endl;
 
     basic_range_lock_test(*range_lock);
+    basic_range_lock_shared_test(*range_lock);
     try_lock_test(*range_lock);
 
     return 0;

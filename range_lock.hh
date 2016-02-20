@@ -139,6 +139,30 @@ private:
         assert(length > 0);
         assert(offset < (offset + length)); // check for overflow
     }
+
+    bool generic_try_lock(uint64_t offset, uint64_t length,
+            std::function<bool(uint64_t)> try_lock, std::function<void(uint64_t)> unlock) {
+        std::vector<uint64_t> locked_region_ids;
+        bool failed_to_lock = false;
+
+        validate_parameters(offset, length);
+        for_each_region(offset, length, [&] (uint64_t region_id) {
+            region& r = this->get_and_lock_region(region_id);
+            bool acquired = try_lock(region_id);
+            if (acquired) {
+                locked_region_ids.push_back(region_id);
+            } else {
+                failed_to_lock = true;
+            }
+        });
+
+        if (failed_to_lock) {
+            for (auto region_id : locked_region_ids) {
+                unlock(region_id);
+            }
+        }
+        return !failed_to_lock;
+    }
 public:
     uint64_t region_size() const { return _region_size; }
 
@@ -155,29 +179,17 @@ public:
     // This function returns immediately.
     // On successful range acquisition returns true, otherwise returns false.
     bool try_lock(uint64_t offset, uint64_t length) {
-        std::vector<uint64_t> locked_region_ids;
-        bool failed_to_lock_region = false;
-
-        validate_parameters(offset, length);
-        for_each_region(offset, length,
-                [this, &locked_region_ids, &failed_to_lock_region] (uint64_t region_id) {
+        auto try_lock_f = [this] (uint64_t region_id) {
             region& r = this->get_and_lock_region(region_id);
-            bool acquired = r.mutex.try_lock();
-            if (acquired) {
-                locked_region_ids.push_back(region_id);
-            } else {
-                failed_to_lock_region = true;
-            }
-        });
+            return r.mutex.try_lock();
+        };
+        auto unlock_f = [this] (uint64_t region_id) {
+            region& r = this->get_locked_region(region_id);
+            r.mutex.unlock();
+            this->unlock_region(region_id);
+        };
 
-        if (failed_to_lock_region) {
-            for (auto region_id : locked_region_ids) {
-                region& r = this->get_locked_region(region_id);
-                r.mutex.unlock();
-                this->unlock_region(region_id);
-            }
-        }
-        return !failed_to_lock_region;
+        return generic_try_lock(offset, length, try_lock_f, unlock_f);
     }
 
     // Unlock range [offset, offset+length) from exclusive ownership.
@@ -208,6 +220,23 @@ public:
         });
     }
 
+    // Tries to lock the range [offset, offset+length) for shared ownership.
+    // This function returns immediately.
+    // On successful range acquisition returns true, otherwise returns false.
+    bool try_lock_shared(uint64_t offset, uint64_t length) {
+        auto try_lock_f = [this] (uint64_t region_id) {
+            region& r = this->get_and_lock_region(region_id);
+            return r.mutex.try_lock_shared();
+        };
+        auto unlock_f = [this] (uint64_t region_id) {
+            region& r = this->get_locked_region(region_id);
+            r.mutex.unlock_shared();
+            this->unlock_region(region_id);
+        };
+
+        return generic_try_lock(offset, length, try_lock_f, unlock_f);
+    }
+
     // Unlock range [offset, offset+length) from shared ownership.
     void unlock_shared(uint64_t offset, uint64_t length) {
         validate_parameters(offset, length);
@@ -232,12 +261,16 @@ public:
 /// That's done by making lock_shared(), unlock_shared() and with_lock_shared()
 /// wrapper functions to lock(), unlock(), and with_lock(), respectively.
 
-#warning __cplusplus < 201402L, so lock_shared() and with_lock_shared() will \
-lock a range for exclusive ownership instead. That can be changed by using \
-the -std=c++14 or -std=gnu++14 compiler options.
+#warning __cplusplus < 201402L, so lock for shared ownership will lock a range \
+for exclusive ownership instead. That can be changed by using the -std=c++14 \
+or -std=gnu++14 compiler options.
 
     void lock_shared(uint64_t offset, uint64_t length) {
         lock(offset, length);
+    }
+
+    bool try_lock_shared(uint64_t offset, uint64_t length) {
+        return try_lock(offset, length);
     }
 
     void unlock_shared(uint64_t offset, uint64_t length) {
