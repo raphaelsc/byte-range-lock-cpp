@@ -10,7 +10,7 @@ Why was this project created? I was looking for a mechanism to lock specific reg
 ```
 $ g++ --std=c++11 range_lock_test.cc -lpthread
 ```
-or 
+or
 ```
 $ g++ --std=c++14 range_lock_test.cc -lpthread
 ```

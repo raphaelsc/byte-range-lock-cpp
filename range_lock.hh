@@ -120,8 +120,10 @@ private:
         return offset / _region_size;
     }
 
+    enum class stop_iteration { no, yes };
+
     inline void
-    do_for_each_region(uint64_t offset, uint64_t length, std::function<void(uint64_t)> f) {
+    do_for_each_region(uint64_t offset, uint64_t length, std::function<stop_iteration(uint64_t)> f) {
         auto assert_alignment = [] (uint64_t v, uint64_t alignment) {
             assert((v & (alignment - 1)) == 0);
         };
@@ -131,11 +133,14 @@ private:
         assert(length % _region_size == 0);
         for (auto i = 0; i < regions; i++) {
             auto current_offset = offset + (i * _region_size);
-            f(get_region_id(current_offset));
+            stop_iteration stop = f(get_region_id(current_offset));
+            if (stop == stop_iteration::yes) {
+                return;
+            }
         }
     }
 
-    void for_each_region(uint64_t offset, uint64_t length, std::function<void(uint64_t)> f) {
+    void for_each_region(uint64_t offset, uint64_t length, std::function<stop_iteration(uint64_t)> f) {
         uint64_t aligned_down_offset = offset & ~(_region_size - 1);
         uint64_t aligned_up_length = (length + _region_size - 1) & ~(_region_size - 1);
         do_for_each_region(aligned_down_offset, aligned_up_length, std::move(f));
@@ -149,7 +154,7 @@ private:
     bool generic_try_lock(uint64_t offset, uint64_t length,
             std::function<bool(uint64_t)> try_lock, std::function<void(uint64_t)> unlock) {
         std::vector<uint64_t> locked_region_ids;
-        bool failed_to_lock = false;
+        bool failed_to_lock_region = false;
 
         validate_parameters(offset, length);
         for_each_region(offset, length, [&] (uint64_t region_id) {
@@ -157,16 +162,18 @@ private:
             if (acquired) {
                 locked_region_ids.push_back(region_id);
             } else {
-                failed_to_lock = true;
+                failed_to_lock_region = true;
+                return stop_iteration::yes;
             }
+            return stop_iteration::no;
         });
 
-        if (failed_to_lock) {
+        if (failed_to_lock_region) {
             for (auto region_id : locked_region_ids) {
                 unlock(region_id);
             }
         }
-        return !failed_to_lock;
+        return !failed_to_lock_region;
     }
 public:
     uint64_t region_size() const { return _region_size; }
@@ -177,6 +184,7 @@ public:
         for_each_region(offset, length, [this] (uint64_t region_id) {
             region& r = this->get_and_lock_region(region_id);
             r.mutex.lock();
+            return stop_iteration::no;
         });
     }
 
@@ -204,6 +212,7 @@ public:
             region& r = this->get_locked_region(region_id);
             r.mutex.unlock();
             this->unlock_region(region_id);
+            return stop_iteration::no;
         });
     }
 
@@ -222,6 +231,7 @@ public:
         for_each_region(offset, length, [this] (uint64_t region_id) {
             region& r = this->get_and_lock_region(region_id);
             r.mutex.lock_shared();
+            return stop_iteration::no;
         });
     }
 
@@ -249,6 +259,7 @@ public:
             region& r = this->get_locked_region(region_id);
             r.mutex.unlock_shared();
             this->unlock_region(region_id);
+            return stop_iteration::no;
         });
     }
 
