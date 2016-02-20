@@ -8,7 +8,7 @@ Why was this project created? I was looking for a mechanism to lock specific reg
 
 main.cc output:
 ```
-$ g++ --std=c++11 main.cc -lpthread
+$ g++ --std=c++11 range_lock_test.cc -lpthread
 $ ./a.out 
 Range lock granularity (a.k.a. region size): 32768
 Trying to lock [0, 1024)
