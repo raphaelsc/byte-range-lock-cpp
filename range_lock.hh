@@ -262,8 +262,8 @@ public:
 /// If __cplusplus < 201402L, lock functions for shared ownership will call
 /// corresponding lock functions for exclusive ownership.
 /// That's because std::shared_timed_mutex is only available from C++14 on.
-/// This decision is also important to not break compilation of programs that
-/// use these functions when an older c++ standard is used.
+/// This decision is also important to not break compilation of programs (when
+/// __cplusplus < 201402L) that use these functions.
 
 #warning __cplusplus < 201402L, so lock for shared ownership will lock a range \
 for exclusive ownership instead. That can be changed by using the -std=c++14 \
