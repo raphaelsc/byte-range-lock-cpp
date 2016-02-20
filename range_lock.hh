@@ -67,6 +67,10 @@ public:
         assert(region_size > 0);
         assert((region_size & (region_size - 1)) == 0);
     }
+    range_lock& operator=(const range_lock&) = delete;
+    range_lock(const range_lock&) = delete;
+    range_lock(range_lock&&) = default;
+
     // Create a range_lock with a region size, which is calculated based on the
     // size of resource to be protected.
     // For example, if you want to protect a file, call create_range_lock()
