@@ -62,8 +62,9 @@ private:
     const uint64_t _region_size;
 public:
     range_lock() = delete;
+    // NOTE: Please make sure that region_size is greater than zero and power
+    // of two. Use std::pow(2, exp) to generate a proper region size.
     range_lock(uint64_t region_size) : _region_size(region_size) {
-        /// assert that region_size is greater than 0 and power of 2.
         assert(region_size > 0);
         assert((region_size & (region_size - 1)) == 0);
     }
@@ -76,9 +77,9 @@ public:
     // For example, if you want to protect a file, call create_range_lock()
     // with the size of that file.
     static std::unique_ptr<range_lock> create_range_lock(uint64_t resource_size) {
-        auto res = ceil(std::log2(resource_size) * 0.5);
+        auto res = std::ceil(std::log2(resource_size) * 0.5);
         auto exp = std::max(uint64_t(res), uint64_t(10));
-        uint64_t region_size = uint64_t(pow(2, exp));
+        uint64_t region_size = uint64_t(std::pow(2, exp));
         return static_cast<std::unique_ptr<range_lock>>(new range_lock(region_size));
     }
 private:
