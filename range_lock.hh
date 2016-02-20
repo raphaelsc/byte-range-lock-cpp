@@ -135,7 +135,7 @@ private:
         do_for_each_region(aligned_down_offset, aligned_up_length, std::move(f));
     }
 
-    void validate_parameters(uint64_t offset, uint64_t length) {
+    static inline void validate_parameters(uint64_t offset, uint64_t length) {
         assert(length > 0);
         assert(offset < (offset + length)); // check for overflow
     }
