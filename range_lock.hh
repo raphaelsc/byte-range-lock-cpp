@@ -196,5 +196,24 @@ public:
         func();
         unlock_shared(offset, length);
     }
+#else
+/// If __cplusplus < 201402L, shared lock will become exclusive lock so as not
+/// to break users of the API if compiled with an older C++ standard.
+///
+/// That's done by making lock_shared(), unlock_shared() and with_lock_shared()
+/// wrapper functions to lock(), unlock(), and with_lock(), respectively.
+
+    void lock_shared(uint64_t offset, uint64_t length) {
+        lock(offset, length);
+    }
+
+    void unlock_shared(uint64_t offset, uint64_t length) {
+        unlock(offset, length);
+    }
+
+    template <typename Func>
+    void with_lock_shared(uint64_t offset, uint64_t length, Func&& func) {
+        with_lock(offset, length, std::move(func));
+    }
 #endif
 };
