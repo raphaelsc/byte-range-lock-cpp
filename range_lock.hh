@@ -62,15 +62,16 @@ private:
     const uint64_t _region_size;
 public:
     range_lock() = delete;
+    range_lock& operator=(const range_lock&) = delete;
+    range_lock(const range_lock&) = delete;
+    range_lock(range_lock&&) = default;
+
     // NOTE: Please make sure that region_size is greater than zero and power
     // of two. Use std::pow(2, exp) to generate a proper region size.
     range_lock(uint64_t region_size) : _region_size(region_size) {
         assert(region_size > 0);
         assert((region_size & (region_size - 1)) == 0);
     }
-    range_lock& operator=(const range_lock&) = delete;
-    range_lock(const range_lock&) = delete;
-    range_lock(range_lock&&) = default;
 
     // Create a range_lock with a region size, which is calculated based on the
     // size of resource to be protected.
