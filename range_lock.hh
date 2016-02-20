@@ -203,6 +203,10 @@ public:
 /// That's done by making lock_shared(), unlock_shared() and with_lock_shared()
 /// wrapper functions to lock(), unlock(), and with_lock(), respectively.
 
+#warning __cplusplus < 201402L, so lock_shared() and with_lock_shared() will \
+lock a range for exclusive ownership instead. That can be changed by using \
+the -std=c++14 or -std=gnu++14 compiler options.
+
     void lock_shared(uint64_t offset, uint64_t length) {
         lock(offset, length);
     }
