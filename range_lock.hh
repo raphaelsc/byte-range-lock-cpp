@@ -136,8 +136,8 @@ private:
     }
 
     void validate_parameters(uint64_t offset, uint64_t length) {
-        assert(offset < (offset + length)); // check for overflow
         assert(length > 0);
+        assert(offset < (offset + length)); // check for overflow
     }
 public:
     uint64_t region_size() const { return _region_size; }
@@ -149,6 +149,35 @@ public:
             region& r = this->get_and_lock_region(region_id);
             r.mutex.lock();
         });
+    }
+
+    // Tries to lock the range [offset, offset+length) for exclusive ownership.
+    // This function returns immediately.
+    // On successful range acquisition returns true, otherwise returns false.
+    bool try_lock(uint64_t offset, uint64_t length) {
+        std::vector<uint64_t> locked_region_ids;
+        bool failed_to_lock_region = false;
+
+        validate_parameters(offset, length);
+        for_each_region(offset, length,
+                [this, &locked_region_ids, &failed_to_lock_region] (uint64_t region_id) {
+            region& r = this->get_and_lock_region(region_id);
+            bool acquired = r.mutex.try_lock();
+            if (acquired) {
+                locked_region_ids.push_back(region_id);
+            } else {
+                failed_to_lock_region = true;
+            }
+        });
+
+        if (failed_to_lock_region) {
+            for (auto region_id : locked_region_ids) {
+                region& r = this->get_locked_region(region_id);
+                r.mutex.unlock();
+                this->unlock_region(region_id);
+            }
+        }
+        return !failed_to_lock_region;
     }
 
     // Unlock range [offset, offset+length) from exclusive ownership.
