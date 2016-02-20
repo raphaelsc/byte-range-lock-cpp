@@ -147,7 +147,6 @@ private:
 
         validate_parameters(offset, length);
         for_each_region(offset, length, [&] (uint64_t region_id) {
-            region& r = this->get_and_lock_region(region_id);
             bool acquired = try_lock(region_id);
             if (acquired) {
                 locked_region_ids.push_back(region_id);
